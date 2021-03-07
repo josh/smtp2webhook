@@ -8,6 +8,8 @@ services:
   smtp2webhook:
     restart: always
     image: ghcr.io/josh/smtp2webhook
+    ports:
+      - 25:25
     environment:
       - DOMAIN=example.com
       - CODE=d039b5
