@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"io/ioutil"
@@ -214,11 +215,23 @@ func eml2json(r io.Reader) ([]byte, error) {
 	m.BodyHTML = env.HTML
 
 	for _, part := range env.Attachments {
-		m.Attachments = append(m.Attachments, Part{part.ContentType, part.FileName, string(part.Content)})
+		var content string
+		if part.TextContent() == true {
+			content = string(part.Content)
+		} else {
+			content = base64.URLEncoding.EncodeToString(part.Content)
+		}
+		m.Attachments = append(m.Attachments, Part{part.ContentType, part.FileName, content})
 	}
 
 	for _, part := range env.Inlines {
-		m.Inlines = append(m.Inlines, Part{part.ContentType, part.FileName, string(part.Content)})
+		var content string
+		if part.TextContent() == true {
+			content = string(part.Content)
+		} else {
+			content = base64.URLEncoding.EncodeToString(part.Content)
+		}
+		m.Inlines = append(m.Inlines, Part{part.ContentType, part.FileName, content})
 
 	}
 
