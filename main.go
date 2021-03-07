@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/mail"
@@ -54,6 +55,7 @@ func (bkd *Backend) AnonymousLogin(state *smtp.ConnectionState) (smtp.Session, e
 
 type Session struct {
 	WebhookURL string
+	Debug      bool
 }
 
 func (s *Session) Mail(from string, opts smtp.MailOptions) error {
@@ -68,6 +70,16 @@ func (s *Session) Rcpt(to string) error {
 	if err != nil {
 		log.Println(err)
 		return err
+	}
+
+	if strings.HasPrefix(e.Address, "postmaster@") {
+		s.Debug = true
+		return nil
+	}
+
+	if strings.HasPrefix(e.Address, "abuse@") {
+		s.Debug = true
+		return nil
 	}
 
 	for prefix, url := range webhooks {
@@ -87,33 +99,34 @@ func (s *Session) Rcpt(to string) error {
 }
 
 func (s *Session) Data(r io.Reader) error {
-	if s.WebhookURL == "" {
-		return &smtp.SMTPError{
-			Code:         550,
-			EnhancedCode: smtp.EnhancedCode{5, 5, 0},
-			Message:      "No mailbox",
+	if s.WebhookURL != "" {
+		json, err := eml2json(r)
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+
+		log.Println("POST", s.WebhookURL)
+		resp, err := http.Post(s.WebhookURL, "application/json", bytes.NewReader(json))
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+
+		if resp.StatusCode != 200 {
+			log.Println(resp)
+			return &smtp.SMTPError{
+				Code:         450,
+				EnhancedCode: smtp.EnhancedCode{4, 5, 0},
+				Message:      "Failed to relay message",
+			}
 		}
 	}
 
-	json, err := eml2json(r)
-	if err != nil {
-		log.Println(err)
-		return err
-	}
-
-	log.Println("POST", s.WebhookURL)
-	resp, err := http.Post(s.WebhookURL, "application/json", bytes.NewReader(json))
-	if err != nil {
-		log.Println(err)
-		return err
-	}
-
-	if resp.StatusCode != 200 {
-		log.Println(resp)
-		return &smtp.SMTPError{
-			Code:         450,
-			EnhancedCode: smtp.EnhancedCode{4, 5, 0},
-			Message:      "Failed to relay message",
+	if s.Debug == true {
+		buf, err := ioutil.ReadAll(r)
+		if err == nil {
+			log.Println(string(buf))
 		}
 	}
 
