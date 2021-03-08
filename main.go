@@ -2,8 +2,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/base64"
-	"encoding/json"
 	"io"
 	"io/ioutil"
 	"log"
@@ -13,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/emersion/go-smtp"
-	"github.com/jhillyerd/enmime"
 )
 
 var webhooks = make(map[string]string)
@@ -100,34 +97,33 @@ func (s *Session) Rcpt(to string) error {
 }
 
 func (s *Session) Data(r io.Reader) error {
-	if s.WebhookURL != "" {
-		json, err := eml2json(r)
-		if err != nil {
-			log.Println(err)
-			return err
-		}
-
-		log.Println("POST", s.WebhookURL)
-		resp, err := http.Post(s.WebhookURL, "application/json", bytes.NewReader(json))
-		if err != nil {
-			log.Println(err)
-			return err
-		}
-
-		if resp.StatusCode != 200 {
-			log.Println(resp)
-			return &smtp.SMTPError{
-				Code:         450,
-				EnhancedCode: smtp.EnhancedCode{4, 5, 0},
-				Message:      "Failed to relay message",
-			}
-		}
+	buf, err := ioutil.ReadAll(r)
+	if err != nil {
+		log.Println(err)
+		return err
 	}
 
 	if s.Debug == true {
-		buf, err := ioutil.ReadAll(r)
-		if err == nil {
-			log.Println(string(buf))
+		log.Println(string(buf))
+	}
+
+	if s.WebhookURL == "" {
+		return nil
+	}
+
+	log.Println("POST", s.WebhookURL)
+	resp, err := http.Post(s.WebhookURL, "message/rfc822", bytes.NewReader(buf))
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+
+	if resp.StatusCode != 200 {
+		log.Println(resp)
+		return &smtp.SMTPError{
+			Code:         450,
+			EnhancedCode: smtp.EnhancedCode{4, 5, 0},
+			Message:      "Failed to relay message",
 		}
 	}
 
@@ -138,107 +134,4 @@ func (s *Session) Reset() {}
 
 func (s *Session) Logout() error {
 	return nil
-}
-
-type Email struct {
-	From        Address           `json:"from,omitempty"`
-	To          []Address         `json:"to,omitempty"`
-	CC          []Address         `json:"cc,omitempty"`
-	BCC         []Address         `json:"bcc,omitempty"`
-	Date        string            `json:"date,omitempty"`
-	Subject     string            `json:"subject,omitempty"`
-	Headers     map[string]string `json:"headers,omitempty"`
-	BodyText    string            `json:"bodyText,omitempty"`
-	BodyHTML    string            `json:"bodyHTML,omitempty"`
-	Attachments []Part            `json:"attachments,omitempty"`
-	Inlines     []Part            `json:"inlines,omitempty"`
-}
-
-type Address struct {
-	Name    string `json:"name,omitempty"`
-	Address string `json:"address,omitempty"`
-}
-
-type Part struct {
-	ContentType string `json:"contentType,omitempty"`
-	FileName    string `json:"filename,omitempty"`
-	Content     string `json:"content,omitempty"`
-}
-
-func eml2json(r io.Reader) ([]byte, error) {
-	env, err := enmime.ReadEnvelope(r)
-	if err != nil {
-		return nil, err
-	}
-
-	m := Email{}
-
-	alist, err := env.AddressList("From")
-	if err == nil {
-		for _, addr := range alist {
-			m.From = Address{addr.Name, addr.Address}
-			break
-		}
-	}
-
-	alist, err = env.AddressList("To")
-	if err == nil {
-		for _, addr := range alist {
-			m.To = append(m.To, Address{addr.Name, addr.Address})
-		}
-	}
-
-	alist, err = env.AddressList("CC")
-	if err == nil {
-		for _, addr := range alist {
-			m.To = append(m.CC, Address{addr.Name, addr.Address})
-		}
-	}
-
-	alist, err = env.AddressList("BCC")
-	if err == nil {
-		for _, addr := range alist {
-			m.To = append(m.BCC, Address{addr.Name, addr.Address})
-		}
-	}
-
-	m.Date = env.GetHeader("Date")
-	m.Subject = env.GetHeader("Subject")
-
-	m.Headers = make(map[string]string)
-	headers := env.GetHeaderKeys()
-	for _, header := range headers {
-		m.Headers[header] = env.GetHeader(header)
-	}
-
-	m.BodyText = env.Text
-	m.BodyHTML = env.HTML
-
-	for _, part := range env.Attachments {
-		var content string
-		if part.TextContent() == true {
-			content = string(part.Content)
-		} else {
-			content = base64.URLEncoding.EncodeToString(part.Content)
-		}
-		m.Attachments = append(m.Attachments, Part{part.ContentType, part.FileName, content})
-	}
-
-	for _, part := range env.Inlines {
-		var content string
-		if part.TextContent() == true {
-			content = string(part.Content)
-		} else {
-			content = base64.URLEncoding.EncodeToString(part.Content)
-		}
-		m.Inlines = append(m.Inlines, Part{part.ContentType, part.FileName, content})
-
-	}
-
-	b, err := json.Marshal(m)
-	if err != nil {
-		return nil, err
-	}
-
-	return b, nil
 }
