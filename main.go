@@ -118,7 +118,9 @@ func (s *Session) Data(r io.Reader) error {
 		return err
 	}
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode >= 200 && resp.StatusCode <= 299 {
+		return nil
+	} else {
 		log.Println(resp)
 		return &smtp.SMTPError{
 			Code:         450,
@@ -126,8 +128,6 @@ func (s *Session) Data(r io.Reader) error {
 			Message:      "Failed to relay message",
 		}
 	}
-
-	return nil
 }
 
 func (s *Session) Reset() {}
