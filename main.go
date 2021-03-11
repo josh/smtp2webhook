@@ -38,7 +38,9 @@ func main() {
 	s.AuthDisabled = true
 	s.EnableSMTPUTF8 = false
 
-	s.ListenAndServe()
+	if err := s.ListenAndServe(); err != nil {
+		log.Fatal(err)
+	}
 }
 
 type Backend struct{}
