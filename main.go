@@ -21,7 +21,7 @@ func main() {
 
 	for _, s := range os.Environ() {
 		kv := strings.SplitN(s, "=", 2)
-		if strings.HasPrefix(kv[0], "WEBHOOK_") == true {
+		if strings.HasPrefix(kv[0], "WEBHOOK_") {
 			key := code + "+" + strings.ToLower(kv[0][8:]) + "@"
 			value := kv[1]
 			webhooks[key] = value
@@ -105,7 +105,7 @@ func (s *Session) Data(r io.Reader) error {
 		return err
 	}
 
-	if s.Debug == true {
+	if s.Debug {
 		log.Println(string(buf))
 	}
 
