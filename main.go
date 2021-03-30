@@ -113,17 +113,17 @@ func (s *Session) Data(r io.Reader) error {
 		return nil
 	}
 
-	log.Println("POST", s.WebhookURL)
 	resp, err := http.Post(s.WebhookURL, "message/rfc822", bytes.NewReader(buf))
 	if err != nil {
-		log.Println(err)
+		log.Println("POST", s.WebhookURL, err)
 		return err
 	}
+
+	log.Println("POST", s.WebhookURL, resp.StatusCode)
 
 	if resp.StatusCode >= 200 && resp.StatusCode <= 299 {
 		return nil
 	} else {
-		log.Println(resp)
 		return &smtp.SMTPError{
 			Code:         450,
 			EnhancedCode: smtp.EnhancedCode{4, 5, 0},
