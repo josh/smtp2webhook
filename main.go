@@ -54,30 +54,28 @@ func (bkd *Backend) AnonymousLogin(state *smtp.ConnectionState) (smtp.Session, e
 }
 
 type Session struct {
+	From       string
+	To         string
 	WebhookURL string
 	Debug      bool
 }
 
 func (s *Session) Mail(from string, opts smtp.MailOptions) error {
-	log.Println("From:", from)
+	s.From = from
 	return nil
 }
 
 func (s *Session) Rcpt(to string) error {
-	log.Println("To:", to)
+	s.To = to
 
 	e, err := mail.ParseAddress(to)
 	if err != nil {
+		log.Println(s.From, "->", s.To, "501")
 		log.Println(err)
 		return err
 	}
 
-	if strings.HasPrefix(e.Address, "postmaster@") {
-		s.Debug = true
-		return nil
-	}
-
-	if strings.HasPrefix(e.Address, "abuse@") {
+	if strings.HasPrefix(e.Address, "postmaster@") || strings.HasPrefix(e.Address, "abuse@") {
 		s.Debug = true
 		return nil
 	}
@@ -89,8 +87,7 @@ func (s *Session) Rcpt(to string) error {
 		}
 	}
 
-	log.Println("No mailbox", to)
-
+	log.Println(s.From, "->", s.To, "550")
 	return &smtp.SMTPError{
 		Code:         550,
 		EnhancedCode: smtp.EnhancedCode{5, 5, 0},
@@ -99,6 +96,8 @@ func (s *Session) Rcpt(to string) error {
 }
 
 func (s *Session) Data(r io.Reader) error {
+	log.Println(s.From, "->", s.To)
+
 	buf, err := ioutil.ReadAll(r)
 	if err != nil {
 		log.Println(err)
