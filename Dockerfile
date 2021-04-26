@@ -6,5 +6,5 @@ COPY . .
 RUN go get -d -v ./...
 RUN go install -v ./...
 
-ENTRYPOINT ["smtp2webhook"]
-HEALTHCHECK CMD ["./healthcheck.sh"]
+ENTRYPOINT [ "smtp2webhook" ]
+HEALTHCHECK CMD [ "smtp2webhook -healthcheck" ]
