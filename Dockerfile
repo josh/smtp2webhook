@@ -1,10 +1,18 @@
-FROM golang:1.16-alpine
+FROM golang:1.16-alpine AS builder
 
 WORKDIR /go/src/app
+
+COPY go.mod go.sum ./
+RUN go mod download
+
 COPY . .
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+  -ldflags '-extldflags "-static"' \
+  -o /go/bin/smtp2webhook
 
-RUN go get -d -v ./...
-RUN go install -v ./...
 
-ENTRYPOINT [ "smtp2webhook" ]
-HEALTHCHECK CMD [ "smtp2webhook -healthcheck" ]
+FROM scratch
+COPY --from=builder /go/bin/smtp2webhook /smtp2webhook
+
+ENTRYPOINT [ "/smtp2webhook" ]
+HEALTHCHECK CMD [ "/smtp2webhook", "-healthcheck" ]
