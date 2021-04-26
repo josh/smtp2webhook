@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -11,23 +12,63 @@ import (
 	"strings"
 
 	"github.com/emersion/go-smtp"
+	"github.com/namsral/flag"
+)
+
+const (
+	name      = "smtp2webhook"
+	envPrefix = "SMTP2WEBHOOK"
+	version   = "1.0.0"
+)
+
+var (
+	fs           *flag.FlagSet
+	domain       string
+	code         string
+	healthcheck  bool
+	printVersion bool
 )
 
 var webhooks = make(map[string]string)
 
 func main() {
-	domain := os.Getenv("DOMAIN")
-	code := os.Getenv("CODE")
+	fs = flag.NewFlagSetWithEnvPrefix(name, envPrefix, flag.ExitOnError)
+	fs.StringVar(&domain, "domain", "localhost", "domain")
+	fs.StringVar(&code, "code", "", "secret code")
+	fs.BoolVar(&healthcheck, "healthcheck", false, "run healthcheck")
+	fs.BoolVar(&printVersion, "version", false, "print version")
+	fs.Parse(os.Args[1:])
+
+	if printVersion {
+		fmt.Println(version)
+		os.Exit(0)
+	}
 
 	for _, s := range os.Environ() {
 		kv := strings.SplitN(s, "=", 2)
-		if strings.HasPrefix(kv[0], "WEBHOOK_") {
+		if strings.HasPrefix(kv[0], "SMTP2WEBHOOK_URL_") {
 			key := code + "+" + strings.ToLower(kv[0][8:]) + "@"
 			value := kv[1]
 			webhooks[key] = value
 
 			log.Printf("Forwarding %s%s to %s\n", key, domain, value)
 		}
+	}
+
+	if healthcheck {
+		client, err := smtp.Dial("127.0.0.1:25")
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+
+		err = client.Hello("localhost")
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+
+		os.Exit(0)
 	}
 
 	s := smtp.NewServer(&Backend{})
