@@ -47,7 +47,7 @@ func main() {
 	for _, s := range os.Environ() {
 		kv := strings.SplitN(s, "=", 2)
 		if strings.HasPrefix(kv[0], "SMTP2WEBHOOK_URL_") {
-			key := code + "+" + strings.ToLower(kv[0][8:]) + "@"
+			key := code + "+" + strings.ToLower(kv[0][17:]) + "@"
 			value := kv[1]
 			webhooks[key] = value
 
