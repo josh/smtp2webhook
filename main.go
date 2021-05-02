@@ -95,6 +95,7 @@ func main() {
 	go func() {
 		if s.TLSConfig != nil {
 			log.Printf("Listening on :465")
+			s.Addr = "[::]:465"
 			if err := s.ListenAndServeTLS(); err != nil {
 				log.Fatal(err)
 			}
@@ -102,6 +103,7 @@ func main() {
 	}()
 
 	log.Printf("Listening on :25")
+	s.Addr = "[::]:25"
 	if err := s.ListenAndServe(); err != nil {
 		log.Fatal(err)
 	}
