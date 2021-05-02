@@ -11,7 +11,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/emersion/go-msgauth/dkim"
 	"github.com/emersion/go-smtp"
 	"github.com/namsral/flag"
 )
@@ -146,24 +145,8 @@ func (s *Session) Data(r io.Reader) error {
 		return err
 	}
 
-	// TMP
-	s.Debug = true
-
 	if s.Debug {
 		log.Println(string(buf))
-	}
-
-	verifications, err := dkim.Verify(bytes.NewReader(buf))
-	if err != nil {
-		log.Println(err)
-	} else {
-		for _, v := range verifications {
-			if v.Err == nil {
-				log.Println("Valid signature for:", v.Domain)
-			} else {
-				log.Println("Invalid signature for:", v.Domain, v.Err)
-			}
-		}
 	}
 
 	if s.WebhookURL == "" {
