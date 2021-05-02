@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -25,6 +26,8 @@ var (
 	fs           *flag.FlagSet
 	domain       string
 	code         string
+	tlsCertPath  string
+	tlsKeyPath   string
 	healthcheck  bool
 	printVersion bool
 )
@@ -35,6 +38,8 @@ func main() {
 	fs = flag.NewFlagSetWithEnvPrefix(name, envPrefix, flag.ExitOnError)
 	fs.StringVar(&domain, "domain", "localhost", "domain")
 	fs.StringVar(&code, "code", "", "secret code")
+	fs.StringVar(&tlsCertPath, "tls-cert", "", "TLS certificate path")
+	fs.StringVar(&tlsKeyPath, "tls-key", "", "TLS key path")
 	fs.BoolVar(&healthcheck, "healthcheck", false, "run healthcheck")
 	fs.BoolVar(&printVersion, "version", false, "print version")
 	fs.Parse(os.Args[1:])
@@ -73,12 +78,30 @@ func main() {
 
 	s := smtp.NewServer(&Backend{})
 
-	s.Addr = "[::]:25"
+	if tlsCertPath != "" && tlsKeyPath != "" {
+		cert, err := tls.LoadX509KeyPair(tlsCertPath, tlsKeyPath)
+		if err != nil {
+			log.Fatal(err)
+			os.Exit(1)
+		}
+		s.TLSConfig = &tls.Config{Certificates: []tls.Certificate{cert}}
+	}
+
 	s.Domain = domain
 	s.AllowInsecureAuth = true
 	s.AuthDisabled = true
 	s.EnableSMTPUTF8 = false
 
+	go func() {
+		if s.TLSConfig != nil {
+			log.Printf("Listening on :465")
+			if err := s.ListenAndServeTLS(); err != nil {
+				log.Fatal(err)
+			}
+		}
+	}()
+
+	log.Printf("Listening on :25")
 	if err := s.ListenAndServe(); err != nil {
 		log.Fatal(err)
 	}

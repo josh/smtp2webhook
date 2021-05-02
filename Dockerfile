@@ -16,3 +16,6 @@ COPY --from=builder /go/bin/smtp2webhook /smtp2webhook
 
 ENTRYPOINT [ "/smtp2webhook" ]
 HEALTHCHECK CMD [ "/smtp2webhook", "-healthcheck" ]
+
+EXPOSE 25/tcp
+EXPOSE 465/tcp
