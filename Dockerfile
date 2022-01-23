@@ -1,3 +1,5 @@
+# bump: golang /FROM golang:([\d.]+)/ docker:golang|^1
+# bump: golang link "Release notes" https://golang.org/doc/devel/release.html
 FROM golang:1.16-alpine AS builder
 
 WORKDIR /go/src/app
